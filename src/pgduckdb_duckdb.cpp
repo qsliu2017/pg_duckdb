@@ -1,5 +1,7 @@
 #include "pgduckdb/pgduckdb_duckdb.hpp"
 
+#include "pgduckdb/pg/db.hpp"
+#include <duckdb/common/string_util.hpp>
 #include <filesystem>
 
 #include "duckdb.hpp"
@@ -106,6 +108,9 @@ DuckDBManager::Initialize() {
 		user_agent += duckdb_custom_user_agent;
 	}
 	const char *application_name = pg::GetConfigOption("application_name", true);
+	const char *dbname = pg::GetDatabaseName();
+	const char *port = pg::GetConfigOption("port", true, false);
+	const char *host = pg::GetConfigOption("listen_addresses", true, false);
 	if (!IsEmptyString(application_name)) {
 		user_agent += ", ";
 		user_agent += application_name;
@@ -207,6 +212,20 @@ DuckDBManager::Initialize() {
 	                                          duckdb::KeywordHelper::WriteQuoted(duckdb_default_collation));
 	pgduckdb::DuckDBQueryOrThrow(context, "ATTACH DATABASE 'pgduckdb' (TYPE pgduckdb)");
 	pgduckdb::DuckDBQueryOrThrow(context, "ATTACH DATABASE ':memory:' AS pg_temp;");
+	{
+		std::string conn_str = "host=";
+		if (host && strlen(host) > 0) {
+			conn_str += host;
+		} else {
+			conn_str += "localhost";
+		}
+		conn_str += " port=";
+		conn_str += port ? port : "5432";
+		conn_str += " dbname=";
+		conn_str += dbname ? dbname : "postgres";
+		std::string attach_sql = duckdb::StringUtil::Format("ATTACH 'ducklake:postgres:%s' AS pgducklake (METADATA_SCHEMA 'pgducklake', DATA_PATH '%s')", conn_str, "/tmp/pgducklake");
+		pgduckdb::DuckDBQueryOrThrow(context, attach_sql);
+	}
 
 	if (pgduckdb::IsMotherDuckEnabled()) {
 		auto timeout = FindMotherDuckBackgroundCatalogRefreshInactivityTimeout();
