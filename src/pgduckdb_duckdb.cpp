@@ -223,7 +223,7 @@ DuckDBManager::Initialize() {
 		conn_str += port ? port : "5432";
 		conn_str += " dbname=";
 		conn_str += dbname ? dbname : "postgres";
-		std::string attach_sql = duckdb::StringUtil::Format("ATTACH 'ducklake:postgres:%s' AS pgducklake (METADATA_SCHEMA 'pgducklake', DATA_PATH '%s')", conn_str, "/tmp/pgducklake");
+		std::string attach_sql = duckdb::StringUtil::Format("ATTACH 'ducklake:postgres:%s' AS pgducklake (METADATA_SCHEMA 'ducklake', DATA_PATH '%s')", conn_str, "/tmp/pgducklake");
 		pgduckdb::DuckDBQueryOrThrow(context, attach_sql);
 	}
 
