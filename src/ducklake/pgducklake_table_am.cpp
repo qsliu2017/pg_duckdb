@@ -236,31 +236,19 @@ duckdb_finish_bulk_insert(Relation /*relation*/, int /*options*/) {
 #if PG_VERSION_NUM >= 160000
 
 static void
-duckdb_relation_set_new_filelocator(Relation rel, const RelFileLocator * /*newrnode*/, char /*persistence*/,
+duckdb_relation_set_new_filelocator(Relation /*rel*/, const RelFileLocator * /*newrnode*/, char /*persistence*/,
                                     TransactionId * /*freezeXid*/, MultiXactId * /*minmulti*/) {
-	HeapTuple tp = SearchSysCache1(RELOID, ObjectIdGetDatum(rel->rd_id));
-	if (!HeapTupleIsValid(tp)) {
-		/* nothing to do, the table will be created in DuckDB later by the
-		 * duckdb_create_table_trigger event trigger */
-		return;
-	}
-	ReleaseSysCache(tp);
-	DuckdbTruncateTable(rel->rd_id);
+	/* nothing to do, the table will be created in DuckDB later by the
+	 * duckdb_create_table_trigger event trigger */
 }
 
 #else
 
 static void
-duckdb_relation_set_new_filenode(Relation rel, const RelFileNode * /*newrnode*/, char /*persistence*/,
+duckdb_relation_set_new_filenode(Relation /*rel*/, const RelFileNode * /*newrnode*/, char /*persistence*/,
                                  TransactionId * /*freezeXid*/, MultiXactId * /*minmulti*/) {
-	HeapTuple tp = SearchSysCache1(RELOID, ObjectIdGetDatum(rel->rd_id));
-	if (!HeapTupleIsValid(tp)) {
-		/* nothing to do, the table will be created in DuckDB later by the
-		 * duckdb_create_table_trigger event trigger */
-		return;
-	}
-	ReleaseSysCache(tp);
-	DuckdbTruncateTable(rel->rd_id);
+	/* nothing to do, the table will be created in DuckDB later by the
+	 * duckdb_create_table_trigger event trigger */
 }
 
 #endif

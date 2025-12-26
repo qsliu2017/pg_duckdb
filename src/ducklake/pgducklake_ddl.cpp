@@ -302,4 +302,64 @@ DECLARE_PG_FUNCTION(ducklake_create_table_trigger) {
 
 	PG_RETURN_NULL();
 }
+
+DECLARE_PG_FUNCTION(ducklake_drop_trigger) {
+	if (!CALLED_AS_EVENT_TRIGGER(fcinfo)) /* internal error */
+		elog(ERROR, "not fired by event trigger manager");
+
+	if (!pgduckdb::IsExtensionRegistered()) {
+		/*
+		 * We're not installed, so don't mess with the query. Normally this
+		 * shouldn't happen, but better safe than sorry.
+		 */
+		PG_RETURN_NULL();
+	}
+
+	SPI_connect();
+
+	auto save_nestlevel = NewGUCNestLevel();
+	SetConfigOption("search_path", "pg_catalog, pg_temp", PGC_USERSET, PGC_S_SESSION);
+	SetConfigOption("duckdb.force_execution", "false", PGC_USERSET, PGC_S_SESSION);
+
+	/*
+	 * We cannot see dropped objects in pg_class at this point,
+	 * so we directly query ducklake metadata.
+	 * Could be buggy.
+	 */
+	int ret = SPI_exec(R"(
+		SELECT cmds.schema_name, cmds.object_name
+		FROM pg_catalog.pg_event_trigger_dropped_objects() cmds
+		JOIN ducklake.ducklake_table AS tbl
+		ON cmds.object_name = tbl.table_name
+		JOIN ducklake.ducklake_schema AS schema
+		ON cmds.schema_name = schema.schema_name
+		AND tbl.schema_id = schema.schema_id
+		WHERE cmds.object_type = 'table'
+		AND tbl.end_snapshot IS NULL
+		AND schema.end_snapshot IS NULL
+		)",
+	                   0);
+
+	if (ret != SPI_OK_SELECT) {
+		elog(ERROR, "SPI_exec failed: error code %s", SPI_result_code_string(ret));
+	}
+
+	auto connection = pgduckdb::DuckDBManager::GetConnection(true);
+
+	for (uint64_t proc = 0; proc < SPI_processed; ++proc) {
+		HeapTuple tuple = SPI_tuptable->vals[proc];
+
+		char *schema_name = SPI_getvalue(tuple, SPI_tuptable->tupdesc, 1);
+		char *table_name = SPI_getvalue(tuple, SPI_tuptable->tupdesc, 2);
+
+		char *drop_query = psprintf("DROP TABLE pgducklake.%s.%s", schema_name, table_name);
+		elog(INFO, "drop query: %s", drop_query);
+		pgduckdb::DuckDBQueryOrThrow(*connection, drop_query);
+	}
+
+	AtEOXact_GUC(false, save_nestlevel);
+	SPI_finish();
+
+	PG_RETURN_NULL();
+}
 }
