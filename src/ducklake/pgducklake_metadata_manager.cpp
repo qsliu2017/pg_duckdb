@@ -60,35 +60,22 @@ class SPI_Result_Helper {
 public:
 	static duckdb::unique_ptr<duckdb::QueryResult>
 	Create(const duckdb::string &query) {
-		elog(INFO, "Creating SPI result for query: %s", query.c_str());
-		// Connect to SPI
-		int SPI_connected = SPI_connect();
-		if (SPI_connected != SPI_OK_CONNECT) {
-			return duckdb::make_uniq<duckdb::MaterializedQueryResult>(duckdb::ErrorData("Failed to connect to SPI"));
-		}
+		elog(DEBUG1, "Creating SPI result for query: %s", query.c_str());
 
-		TransactionId xid = GetTopTransactionIdIfAny();
-		CommandId cid_begin = GetCurrentCommandId(false);
-
-		auto save_nestlevel = NewGUCNestLevel();
-		SetConfigOption("search_path", "pg_catalog, pg_temp", PGC_USERSET, PGC_S_SESSION);
-		SetConfigOption("duckdb.force_execution", "false", PGC_USERSET, PGC_S_SESSION);
+		SPI_connect();
+		PushActiveSnapshot(GetTransactionSnapshot());
 
 		// Execute the query in read-only mode
 		int ret = SPI_execute(query.c_str(), false, 0);
 
 		if (ret < 0) {
-			SPI_finish();
-			return duckdb::make_uniq<duckdb::MaterializedQueryResult>(
-			    duckdb::ErrorData(duckdb::StringUtil::Format("SPI_execute failed: %s", SPI_result_code_string(ret))));
+			elog(ERROR, "SPI_execute failed: %s", SPI_result_code_string(ret));
 		}
 
 		// Get the result table
 		SPITupleTable *tuptable = SPI_tuptable;
 		if (!tuptable) {
-			CommandId cid_end = GetCurrentCommandId(false);
-			elog(INFO, "XID: %u, CID: %u->%u", xid, cid_begin, cid_end);
-			// No results returned (e.g., from a utility command)
+			PopActiveSnapshot();
 			SPI_finish();
 
 			// Return an empty result
@@ -142,11 +129,7 @@ public:
 			}
 		}
 
-		CommandId cid_end = GetCurrentCommandId(false);
-		elog(INFO, "XID: %u, CID: %u->%u, SPI num_rows: %lu, collection chunk count: %llu", xid, cid_begin, cid_end,
-		     num_rows, collection_p->ChunkCount());
-		AtEOXact_GUC(false, save_nestlevel);
-		// Disconnect from SPI
+		PopActiveSnapshot();
 		SPI_finish();
 
 		// Create and return the MaterializedQueryResult

@@ -231,6 +231,13 @@ DuckDBManager::Initialize() {
 		    "ATTACH 'ducklake:pgducklake:%s' AS pgducklake (METADATA_SCHEMA 'ducklake', DATA_PATH '%s')", conn_str,
 		    "/tmp/pgducklake");
 		pgduckdb::DuckDBQueryOrThrow(context, attach_sql);
+
+		// Allow mixed transactions for now, because we're sure that
+		// change to ducklake table is safe.
+		//
+		// TODO: can we make it more precise?
+		extern bool duckdb_unsafe_allow_mixed_transactions;
+		duckdb_unsafe_allow_mixed_transactions = true;
 	}
 
 	if (pgduckdb::IsMotherDuckEnabled()) {
