@@ -1,15 +1,16 @@
 #include "pgduckdb/pgduckdb_duckdb.hpp"
 
-#include "pgduckdb/ducklake/pgducklake_metadata_manager.hpp"
-#include "pgduckdb/pg/db.hpp"
-#include <duckdb/common/string_util.hpp>
 #include <filesystem>
 
 #include "duckdb.hpp"
 #include "duckdb/common/exception.hpp"
+#include "duckdb/common/string_util.hpp"
 #include "duckdb/parser/parsed_data/create_table_function_info.hpp"
 
+#include "storage/ducklake_metadata_manager.hpp"
+
 #include "pgduckdb/catalog/pgduckdb_storage.hpp"
+#include "pgduckdb/ducklake/pgducklake_metadata_manager.hpp"
 #include "pgduckdb/pg/guc.hpp"
 #include "pgduckdb/pg/permissions.hpp"
 #include "pgduckdb/pg/string_utils.hpp"
@@ -29,7 +30,6 @@
 #include "pgduckdb/utility/cpp_wrapper.hpp"
 #include "pgduckdb/utility/signal_guard.hpp"
 #include "pgduckdb/vendor/pg_list.hpp"
-#include <storage/ducklake_metadata_manager.hpp>
 
 extern "C" {
 #include "postgres.h"
@@ -110,9 +110,6 @@ DuckDBManager::Initialize() {
 		user_agent += duckdb_custom_user_agent;
 	}
 	const char *application_name = pg::GetConfigOption("application_name", true);
-	const char *dbname = pg::GetDatabaseName();
-	const char *port = pg::GetConfigOption("port", true, false);
-	const char *host = pg::GetConfigOption("listen_addresses", true, false);
 	if (!IsEmptyString(application_name)) {
 		user_agent += ", ";
 		user_agent += application_name;
@@ -214,23 +211,12 @@ DuckDBManager::Initialize() {
 	                                          duckdb::KeywordHelper::WriteQuoted(duckdb_default_collation));
 	pgduckdb::DuckDBQueryOrThrow(context, "ATTACH DATABASE 'pgduckdb' (TYPE pgduckdb)");
 	pgduckdb::DuckDBQueryOrThrow(context, "ATTACH DATABASE ':memory:' AS pg_temp;");
+
 	{
 		duckdb::DuckLakeMetadataManager::Register("pgducklake", PgDuckLakeMetadataManager::Create);
-
-		std::string conn_str = "host=";
-		if (host && strlen(host) > 0) {
-			conn_str += host;
-		} else {
-			conn_str += "localhost";
-		}
-		conn_str += " port=";
-		conn_str += port ? port : "5432";
-		conn_str += " dbname=";
-		conn_str += dbname ? dbname : "postgres";
-		std::string attach_sql = duckdb::StringUtil::Format(
-		    "ATTACH 'ducklake:pgducklake:%s' AS pgducklake (METADATA_SCHEMA 'ducklake', DATA_PATH '%s')", conn_str,
-		    "/tmp/pgducklake");
-		pgduckdb::DuckDBQueryOrThrow(context, attach_sql);
+		pgduckdb::DuckDBQueryOrThrow(
+		    context,
+		    "ATTACH 'ducklake:pgducklake:' AS pgducklake (METADATA_SCHEMA 'ducklake', DATA_PATH '/tmp/pgducklake')");
 
 		// Allow mixed transactions for now, because we're sure that
 		// change to ducklake table is safe.

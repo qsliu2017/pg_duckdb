@@ -291,7 +291,7 @@ DECLARE_PG_FUNCTION(ducklake_create_table_trigger) {
 
 	std::string create_table_string(pgducklake_get_tabledef(relid));
 
-	elog(INFO, "create_table_string: %s", create_table_string.c_str());
+	elog(DEBUG1, "create_table_string: %s", create_table_string.c_str());
 
 	AtEOXact_GUC(false, save_nestlevel);
 	SPI_finish();
