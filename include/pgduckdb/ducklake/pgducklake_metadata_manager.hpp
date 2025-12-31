@@ -26,6 +26,8 @@ public:
 	bool IsInitialized() override;
 
 	// Some queries contain DuckDB syntax (e.g. LIST, STRUCT), we have to rewite them in PGSQL.
+
+	duckdb::string CastStatsToTarget(const duckdb::string &stats, const duckdb::LogicalType &type) override;
 	duckdb::DuckLakeCatalogInfo GetCatalogForSnapshot(duckdb::DuckLakeSnapshot snapshot) override;
 };
 

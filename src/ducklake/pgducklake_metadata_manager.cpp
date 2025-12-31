@@ -294,6 +294,14 @@ LoadInlinedDataTables(const Value &list) {
 	return result;
 }
 
+duckdb::string
+PgDuckLakeMetadataManager::CastStatsToTarget(const duckdb::string &stats, const duckdb::LogicalType &type) {
+	if (type.IsNumeric()) {
+		return "CAST(" + stats + " AS " + type.ToString() + ")";
+	}
+	return stats;
+}
+
 DuckLakeCatalogInfo
 PgDuckLakeMetadataManager::GetCatalogForSnapshot(DuckLakeSnapshot snapshot) {
 	auto &ducklake_catalog = transaction.GetCatalog();
