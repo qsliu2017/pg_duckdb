@@ -74,10 +74,10 @@ jobs:
         if: matrix.type == 'Debug'
         run: |
           sudo apt-get install libtsan2
-          echo "CFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
-          echo "CXXFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
-          echo "PG_CFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
-          echo "PG_CXXFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
+          echo "CFLAGS=-fsanitize=thread" >> $GITHUB_ENV
+          echo "CXXFLAGS=-fsanitize=thread" >> $GITHUB_ENV
+          echo "PG_CFLAGS=-fsanitize=thread" >> $GITHUB_ENV
+          echo "PG_CXXFLAGS=-fsanitize=thread" >> $GITHUB_ENV
 
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2
