@@ -61,14 +61,6 @@ jobs:
       - name: Test details
         run: echo Build and test pg_duckdb with PostgreSQL ${{ matrix.version }} branch
 
-      - name: Setup asan
-        if: matrix.type == 'Debug'
-        run: |
-          echo "CFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
-          echo "CXXFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
-          echo "PG_CFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
-          echo "PG_CXXFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
-
       - name: Install build deps
         run: |
           sudo apt-get update -qq
@@ -77,6 +69,15 @@ jobs:
             libssl-dev libxml2-utils xsltproc pkg-config libc++-dev libc++abi-dev libglib2.0-dev libtinfo6 cmake \
             libstdc++-12-dev ninja-build libcurl4-openssl-dev
           echo "${PWD}/postgres/inst/bin:$PATH'" > $GITHUB_PATH
+
+      - name: Setup asan
+        if: matrix.type == 'Debug'
+        run: |
+          sudo apt-get install libtsan-dev
+          echo "CFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
+          echo "CXXFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
+          echo "PG_CFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
+          echo "PG_CXXFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
 
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2
