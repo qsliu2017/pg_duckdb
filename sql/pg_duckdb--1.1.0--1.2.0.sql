@@ -2,6 +2,20 @@ CREATE SCHEMA ducklake;
 
 GRANT USAGE ON SCHEMA ducklake TO PUBLIC;
 
+-- If duckdb.postgres_role is configured let's grant it access to the ducklake schema.
+DO $$
+DECLARE
+    role_name text;
+BEGIN
+    SELECT current_setting('duckdb.postgres_role') INTO role_name;
+    IF role_name != '' AND NOT EXISTS (
+      SELECT FROM pg_catalog.pg_roles
+      WHERE  rolname = role_name) THEN
+        EXECUTE 'GRANT USAGE ON SCHEMA ducklake TO ' || quote_ident(current_setting('duckdb.postgres_role'));
+    END IF;
+END
+$$;
+
 CREATE FUNCTION ducklake._am_handler(internal)
     RETURNS table_am_handler
     SET search_path = pg_catalog, pg_temp
@@ -26,3 +40,6 @@ CREATE FUNCTION ducklake._drop_trigger() RETURNS event_trigger
 
 CREATE EVENT TRIGGER ducklake_drop_trigger ON sql_drop
     EXECUTE FUNCTION ducklake._drop_trigger();
+
+-- Ensure that the metadata manager is initialized.
+SELECT duckdb.raw_query('SELECT 1');

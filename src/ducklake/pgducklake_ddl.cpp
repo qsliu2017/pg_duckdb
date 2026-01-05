@@ -350,7 +350,7 @@ DECLARE_PG_FUNCTION(ducklake_drop_trigger) {
 		char *table_name = SPI_getvalue(tuple, SPI_tuptable->tupdesc, 2);
 
 		char *drop_query = psprintf("DROP TABLE pgducklake.%s.%s", schema_name, table_name);
-		elog(INFO, "drop query: %s", drop_query);
+		elog(DEBUG1, "drop query: %s", drop_query);
 		pgduckdb::DuckDBQueryOrThrow(*connection, drop_query);
 	}
 

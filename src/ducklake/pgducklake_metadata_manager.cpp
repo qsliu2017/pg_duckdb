@@ -27,6 +27,7 @@ extern "C" {
 #include "utils/syscache.h"
 #include "access/genam.h"
 #include "utils/elog.h"
+#include "utils/guc.h"
 #include "executor/spi.h"
 }
 
@@ -110,6 +111,9 @@ CreateSPIResult(const string &query) {
 	SPI_connect();
 	PushActiveSnapshot(GetTransactionSnapshot());
 
+	auto save_nestlevel = NewGUCNestLevel();
+	SetConfigOption("duckdb.force_execution", "false", PGC_USERSET, PGC_S_SESSION);
+
 	// Execute the query in read-only mode
 	int ret = SPI_execute(query.c_str(), false, 0);
 
@@ -120,6 +124,7 @@ CreateSPIResult(const string &query) {
 	// Get the result table
 	SPITupleTable *tuptable = SPI_tuptable;
 	if (!tuptable) {
+		AtEOXact_GUC(false, save_nestlevel);
 		PopActiveSnapshot();
 		SPI_finish();
 		IncrementDuckLakeCommandId(pg::GetCurrentCommandId() - cid_before_commit);
@@ -173,6 +178,7 @@ CreateSPIResult(const string &query) {
 		collection_p->Append(*chunk);
 	}
 
+	AtEOXact_GUC(false, save_nestlevel);
 	PopActiveSnapshot();
 	SPI_finish();
 	IncrementDuckLakeCommandId(pg::GetCurrentCommandId() - cid_before_commit);
