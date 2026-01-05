@@ -61,6 +61,12 @@ jobs:
       - name: Test details
         run: echo Build and test pg_duckdb with PostgreSQL ${{ matrix.version }} branch
 
+      - name: Setup asan
+        if: matrix.type == 'Debug'
+        run: |
+          export CFLAGS="-fsanitize=thread"
+          export CXXFLAGS="-fsanitize=thread"
+
       - name: Install build deps
         run: |
           sudo apt-get update -qq
