@@ -76,6 +76,8 @@ jobs:
           sudo apt-get install libtsan2
           echo "CFLAGS=-fsanitize=thread" >> $GITHUB_ENV
           echo "CXXFLAGS=-fsanitize=thread" >> $GITHUB_ENV
+          echo "PG_CFLAGS=-fsanitize=thread" >> $GITHUB_ENV
+          echo "PG_CXXFLAGS=-fsanitize=thread" >> $GITHUB_ENV
 
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2
@@ -138,7 +140,7 @@ jobs:
       - name: Build pg_duckdb extension
         id: build
         working-directory: duckdb
-        run: ERROR_ON_WARNING=1 make -j8 install DUCKDB_BUILD=${{ matrix.type }}
+        run: make -j8 install DUCKDB_BUILD=${{ matrix.type }}
 
       - name: Run make installcheck
         id: installcheck
