@@ -64,8 +64,10 @@ jobs:
       - name: Setup asan
         if: matrix.type == 'Debug'
         run: |
-          export CFLAGS="-fsanitize=thread"
-          export CXXFLAGS="-fsanitize=thread"
+          echo "CFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
+          echo "CXXFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
+          echo "PG_CFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
+          echo "PG_CXXFLAGS=\"-fsanitize=thread\"" >> $GITHUB_ENV
 
       - name: Install build deps
         run: |
