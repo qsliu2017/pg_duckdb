@@ -30,6 +30,14 @@ extern "C" {
 #include "executor/spi.h"
 }
 
+/* Referenced from pgduckdb_xact.cpp */
+namespace pgduckdb {
+namespace pg {
+CommandId GetCurrentCommandId(bool used = false);
+}
+void IncrementDuckLakeCommandId(CommandId inc);
+} // namespace pgduckdb
+
 namespace pgduckdb {
 using namespace duckdb;
 
@@ -98,6 +106,7 @@ static unique_ptr<QueryResult>
 CreateSPIResult(const string &query) {
 	elog(DEBUG1, "Creating SPI result for query: %s", query.c_str());
 
+	CommandId cid_before_commit = pg::GetCurrentCommandId();
 	SPI_connect();
 	PushActiveSnapshot(GetTransactionSnapshot());
 
@@ -113,6 +122,7 @@ CreateSPIResult(const string &query) {
 	if (!tuptable) {
 		PopActiveSnapshot();
 		SPI_finish();
+		IncrementDuckLakeCommandId(pg::GetCurrentCommandId() - cid_before_commit);
 
 		// Return an empty result
 		vector<string> names;
@@ -165,6 +175,7 @@ CreateSPIResult(const string &query) {
 
 	PopActiveSnapshot();
 	SPI_finish();
+	IncrementDuckLakeCommandId(pg::GetCurrentCommandId() - cid_before_commit);
 
 	// Create and return the MaterializedQueryResult
 	StatementProperties properties;

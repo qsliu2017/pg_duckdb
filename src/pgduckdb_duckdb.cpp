@@ -213,17 +213,11 @@ DuckDBManager::Initialize() {
 	pgduckdb::DuckDBQueryOrThrow(context, "ATTACH DATABASE ':memory:' AS pg_temp;");
 
 	{
+		auto data_path = duckdb::StringUtil::Format("%s/pg_ducklake", DataDir);
 		duckdb::DuckLakeMetadataManager::Register("pgducklake", PgDuckLakeMetadataManager::Create);
 		pgduckdb::DuckDBQueryOrThrow(
 		    context,
-		    "ATTACH 'ducklake:pgducklake:' AS pgducklake (METADATA_SCHEMA 'ducklake', DATA_PATH '/tmp/pgducklake')");
-
-		// Allow mixed transactions for now, because we're sure that
-		// change to ducklake table is safe.
-		//
-		// TODO: can we make it more precise?
-		extern bool duckdb_unsafe_allow_mixed_transactions;
-		duckdb_unsafe_allow_mixed_transactions = true;
+		    "ATTACH 'ducklake:pgducklake:' AS pgducklake (METADATA_SCHEMA 'ducklake', DATA_PATH '" + data_path + "/')");
 	}
 
 	if (pgduckdb::IsMotherDuckEnabled()) {
