@@ -12,6 +12,7 @@
 
 #include "common/ducklake_util.hpp"
 
+#include "pgduckdb/pgduckdb_guc.hpp"
 #include "pgduckdb/pgduckdb_utils.hpp"
 #include "pgduckdb/pgduckdb_types.hpp"
 
@@ -312,6 +313,79 @@ LoadInlinedDataTables(const duckdb::Value &list) {
 		result.push_back(std::move(inlined_data_table));
 	}
 	return result;
+}
+
+static void
+ColumnToSQLRecursive(const duckdb::DuckLakeColumnInfo &column, duckdb::TableIndex table_id, duckdb::optional_idx parent,
+                    duckdb::string &result) {
+	if (!result.empty()) {
+		result += ",";
+	}
+	duckdb::string parent_idx = parent.IsValid() ? duckdb::to_string(parent.GetIndex()) : "NULL";
+	duckdb::string initial_default =
+	    !column.initial_default.IsNull() ? duckdb::KeywordHelper::WriteQuoted(column.initial_default.ToString(), '\'') : "NULL";
+	duckdb::string default_val =
+	    !column.default_value.IsNull() ? duckdb::KeywordHelper::WriteQuoted(column.default_value.ToString(), '\'') : "NULL";
+	auto column_id = column.id.index;
+	auto column_order = column_id;
+	result += duckdb::StringUtil::Format("(%d, {SNAPSHOT_ID}, NULL, %d, %d, %s, %s, %s, %s, %s, %s)", column_id,
+	                                     table_id.index, column_order, duckdb::SQLString(column.name),
+	                                     duckdb::SQLString(column.type), initial_default, default_val,
+	                                     column.nulls_allowed ? "true" : "false", parent_idx);
+	for (auto &child : column.children) {
+		ColumnToSQLRecursive(child, table_id, column_id, result);
+	}
+}
+
+duckdb::string
+PgDuckLakeMetadataManager::WriteNewTables(duckdb::DuckLakeSnapshot commit_snapshot,
+                                          const duckdb::vector<duckdb::DuckLakeTableInfo> &new_tables,
+                                          duckdb::vector<duckdb::DuckLakeSchemaInfo> &new_schemas_result) {
+	if (new_tables.empty()) {
+		return {};
+	}
+
+	duckdb::string column_insert_sql;
+	duckdb::string table_insert_sql;
+
+	for (auto &table : new_tables) {
+		if (!table_insert_sql.empty()) {
+			table_insert_sql += ", ";
+		}
+		auto schema_id = table.schema_id.index;
+		auto path = DuckLakeMetadataManager::GetRelativePath(table.schema_id, table.path, new_schemas_result);
+
+		// Handle ducklake.default_table_path GUC
+		// If GUC is set (non-empty), use it as an absolute path prefix for new tables
+		if (ducklake_default_table_path && ducklake_default_table_path[0] != '\0' && path.path_is_relative) {
+			duckdb::string gucc_path = ducklake_default_table_path;
+			if (!gucc_path.empty() && gucc_path.back() != '/') {
+				gucc_path += '/';
+			}
+			path.path = gucc_path + path.path;
+			path.path_is_relative = false;
+		}
+
+		table_insert_sql +=
+		    duckdb::StringUtil::Format("(%d, '%s', {SNAPSHOT_ID}, NULL, %d, %s, %s, %s)", table.id.index, table.uuid, schema_id,
+		                       duckdb::SQLString(table.name), duckdb::SQLString(path.path), path.path_is_relative ? "true" : "false");
+		for (auto &column : table.columns) {
+			ColumnToSQLRecursive(column, table.id, duckdb::optional_idx(), column_insert_sql);
+		}
+	}
+	duckdb::string batch_query;
+	// Batch table and column inserts into a single multi-statement query
+	if (!table_insert_sql.empty()) {
+		batch_query += "INSERT INTO {METADATA_CATALOG}.ducklake_table VALUES " + table_insert_sql + ";";
+	}
+	if (!column_insert_sql.empty()) {
+		batch_query += "INSERT INTO {METADATA_CATALOG}.ducklake_column VALUES " + column_insert_sql + ";";
+	}
+
+	// write new data-inlining tables (if data-inlining is enabled)
+	batch_query += WriteNewInlinedTables(commit_snapshot, new_tables);
+
+	return batch_query;
 }
 
 duckdb::string

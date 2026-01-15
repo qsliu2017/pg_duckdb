@@ -2,3 +2,4 @@ test: basic
 test: data_path
 test: initialization
 test: temp_table
+test: default_table_path

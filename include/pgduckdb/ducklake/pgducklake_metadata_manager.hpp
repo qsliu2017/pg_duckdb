@@ -30,6 +30,10 @@ public:
 		return IsInitialized();
 	}
 
+	duckdb::string WriteNewTables(duckdb::DuckLakeSnapshot commit_snapshot,
+	                              const duckdb::vector<duckdb::DuckLakeTableInfo> &new_tables,
+	                              duckdb::vector<duckdb::DuckLakeSchemaInfo> &new_schemas_result) override;
+
 	// Some queries contain DuckDB syntax (e.g. LIST, STRUCT), we have to rewite them in PGSQL.
 
 	duckdb::string CastStatsToTarget(const duckdb::string &stats, const duckdb::LogicalType &type) override;

@@ -21,6 +21,16 @@ static GucStringAssignHook prev_tz_assign_hook = nullptr;
 
 namespace pgduckdb {
 
+namespace pgducklake {
+char *
+MakeDirName(const char *name) {
+	StringInfoData buf;
+	initStringInfo(&buf);
+	appendStringInfo(&buf, "%s/pg_ducklake/%s", DataDir, name);
+	return buf.data;
+}
+} // namespace pgducklake
+
 namespace {
 char *
 MakeDirName(const char *name) {
@@ -143,6 +153,8 @@ char *duckdb_default_collation = strdup("");
 char *duckdb_azure_transport_option_type = strdup("");
 char *duckdb_custom_user_agent = strdup("");
 
+char *ducklake_default_table_path = strdup("");
+
 void
 InitGUC() {
 	/* pg_duckdb specific GUCs */
@@ -247,6 +259,10 @@ InitGUC() {
 
 	DefineCustomDuckDBVariable("duckdb.custom_user_agent", "Additional user agent string to append to 'pg_duckdb'",
 	                           &duckdb_custom_user_agent, PGC_SUSET);
+
+	/* DuckLake GUCs */
+	DefineCustomVariable("ducklake.default_table_path", "Default table path to create table",
+	                     &ducklake_default_table_path);
 }
 
 #if PG_VERSION_NUM < 160000
